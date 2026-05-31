@@ -1,0 +1,17 @@
+[project]
+name = "fastcache"
+version = "0.1.0"
+description = "A provider-agnostic, embeddable Python library for semantic caching of LLM responses."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26.0",
+    "redis>=5.0.0",
+    "openai>=1.30.0",
+    "streamlit>=1.35.0",
+    "sentence-transformers>=3.0.0"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
