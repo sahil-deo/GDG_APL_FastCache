@@ -160,7 +160,7 @@ response = await cache.aquery("What is FastAPI?", my_async_llm)
 
 ## Monitoring Dashboard
 
-FastCache includes an optional Streamlit dashboard for real-time visibility into cache performance.
+FastCache includes an interactive Streamlit dashboard for real-time visibility into cache performance.
 
 ```bash
 # Enter the library directory
@@ -170,10 +170,19 @@ cd fastcache
 uv run streamlit run examples/app.py
 ```
 
+### The Interface
+
+The dashboard provides a premium, chat-based interface that visibly differentiates between **Cache Misses** (full API latency), **Semantic Hits** (fuzzy matches), and **Exact Matches** (SHA-256 bypass). 
+
+**Cache Miss Example (Full Latency):**
+![FastCache Miss Demo](./assets/demo_miss.png)
+
+**Semantic Cache Hit Example (Zero LLM Tokens, ~100ms Latency):**
+![FastCache Hit Demo](./assets/demo_hit.png)
+
 The dashboard provides:
-- Live hit rate and latency metrics
-- A cache explorer for investigating stored entries
-- Live tracking for total queries and saved LLM tokens
+- Live hit rate and latency metrics (Avg Latency, Total Queries)
+- Beautiful badges showing exactly which path the request took
 - One-click global cache invalidation
 
 ---
