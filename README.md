@@ -158,32 +158,56 @@ response = await cache.aquery("What is FastAPI?", my_async_llm)
 
 ---
 
-## Monitoring Dashboard
+## Interactive Demonstration
 
-FastCache includes an interactive Streamlit dashboard for real-time visibility into cache performance.
+FastCache comes with a premium, chat-based demonstration app to help you visualize semantic caching in action.
 
 ```bash
 # Enter the library directory
 cd fastcache
 
-# Run the frontend application
+# Run the frontend demonstration application
 uv run streamlit run examples/app.py
 ```
 
-### The Interface
+The interactive demo visibly differentiates between **Cache Misses** (full API latency), **Semantic Hits** (fuzzy matches), and **Exact Matches** (SHA-256 bypass).
 
-The dashboard provides a premium, chat-based interface that visibly differentiates between **Cache Misses** (full API latency), **Semantic Hits** (fuzzy matches), and **Exact Matches** (SHA-256 bypass). 
+**Demonstration Interface:**
+![FastCache Chat Demo](./assets/demo_chat.png)
 
-**Cache Miss Example (Full Latency):**
-![FastCache Miss Demo](./assets/demo_miss.png)
+---
 
-**Semantic Cache Hit Example (Zero LLM Tokens, ~100ms Latency):**
-![FastCache Hit Demo](./assets/demo_hit.png)
+## Monitoring Dashboard
+
+FastCache includes a built-in administrative dashboard (`fastcache.dashboard`) for real-time visibility into cache performance. 
+
+> [!IMPORTANT]
+> The dashboard **cannot run standalone**. It requires a host Python application that has already created a `SemanticCache` instance and passed it to the dashboard. Running `streamlit run fastcache/dashboard/app.py` directly will show an error because there is no cache to connect to.
+
+The recommended way to use the dashboard is via the `dashboard_demo.py` script, which seeds a cache with synthetic data and launches the UI in a single step:
+
+```bash
+cd fastcache
+uv run python examples/dashboard_demo.py
+```
+
+Or, from your own application, call `serve_dashboard()` on your cache instance:
+
+```python
+cache = SemanticCache(dashboard=True)
+
+# After your app has run some queries...
+cache.serve_dashboard(port=8501, background=True)
+```
+
+**Administrative Dashboard:**
+![FastCache Dashboard](./assets/demo_dashboard.png)
 
 The dashboard provides:
 - Live hit rate and latency metrics (Avg Latency, Total Queries)
-- Beautiful badges showing exactly which path the request took
-- One-click global cache invalidation
+- Bar charts for latency distributions and namespace density
+- A Cache Explorer to view all stored vectors, hit counts, and TTLs
+
 
 ---
 
