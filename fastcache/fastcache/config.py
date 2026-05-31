@@ -5,7 +5,7 @@ from typing import Literal
 @dataclass
 class CacheConfig:
     threshold: float = field(
-        default_factory=lambda: float(os.environ.get("FASTCACHE_THRESHOLD", "0.92"))
+        default_factory=lambda: float(os.environ.get("FASTCACHE_THRESHOLD", "0.85"))
     )
     ttl: int = field(
         default_factory=lambda: int(os.environ.get("FASTCACHE_TTL", "0"))

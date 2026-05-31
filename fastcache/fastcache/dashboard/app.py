@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -6,7 +7,14 @@ import numpy as np
 _global_cache = None
 
 def get_cache():
-    return _global_cache
+    if _global_cache:
+        return _global_cache
+    path = os.environ.get("FASTCACHE_DEMO_CACHE")
+    if path:
+        import json
+        with open(path) as f:
+            return json.load(f)
+    return None
 
 def main():
     st.set_page_config(page_title="FastCache Dashboard", layout="wide")
@@ -18,7 +26,7 @@ def main():
         
     st.title("FastCache Dashboard")
     
-    stats = cache.stats
+    stats = type("Stats", (), cache["stats"])()
     
     # 1. Overview
     col1, col2, col3, col4 = st.columns(4)
@@ -53,19 +61,18 @@ def main():
     
     # 4. Cache Explorer
     st.subheader("Cache Explorer")
-    if hasattr(cache.store, "_entries") and cache.store._entries:
+    entries = cache.get("entries", [])
+    if entries:
         all_entries = []
-        for ns, entries in cache.store._entries.items():
-            for e in entries:
-                all_entries.append({
-                    "ID": e.id[:8],
-                    "Namespace": e.namespace,
-                    "Query": e.query[:50] + "..." if len(e.query) > 50 else e.query,
-                    "Hit Count": e.hit_count,
-                    "Age (s)": round(e.age_seconds),
-                    "TTL": "No expiry" if e.ttl == 0 else round(e.ttl_remaining)
-                })
-        
+        for e in entries:
+            all_entries.append({
+                "ID": e["id"][:8],
+                "Namespace": e["namespace"],
+                "Query": e["query"][:50] + "..." if len(e["query"]) > 50 else e["query"],
+                "Hit Count": e["hit_count"],
+                "Age (s)": round(e["age_seconds"]),
+                "TTL": "No expiry" if e["ttl"] == 0 else round(e["ttl_remaining"])
+            })
         df_explorer = pd.DataFrame(all_entries)
         st.dataframe(df_explorer, use_container_width=True)
     else:

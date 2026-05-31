@@ -389,9 +389,9 @@ DEFAULTS = dict(
     cache=None, client=None,
     chat_history=[],
     bench_log=[], bench_done=False,
-    api_key="AQ.Ab8RN6LKwvBIJUM7wbvzUx5YfLnjNmjjtJuNcIMc_QydwES8Pg",
+    api_key="",
     model="gemini-3.1-flash-lite",
-    threshold=0.92,
+    threshold=0.85,
     pending_prompt=None,
     query_start_ts=None,
     last_similarity=None,
@@ -404,11 +404,21 @@ for k, v in DEFAULTS.items():
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
+@st.cache_resource
+def _start_dashboard(_cache):
+    try:
+        _cache.serve_dashboard(port=8502, background=True)
+        return True
+    except Exception as e:
+        print(f"Failed to start admin dashboard: {e}")
+        return False
+
 def get_cache() -> SemanticCache:
     if st.session_state.cache is None:
         embedder = GeminiEmbedder(api_key=st.session_state.api_key, model="gemini-embedding-2") if st.session_state.api_key else None
         config = CacheConfig(threshold=st.session_state.threshold)
-        st.session_state.cache = DemoCache(config=config, embedder=embedder)
+        st.session_state.cache = DemoCache(config=config, embedder=embedder, dashboard=True)
+    _start_dashboard(st.session_state.cache)
     return st.session_state.cache
 
 def get_client() -> LLMClient | None:
@@ -580,6 +590,8 @@ with st.sidebar:
   </div>
 </div>
 """.replace('\n', ''), unsafe_allow_html=True)
+    
+    st.markdown("<br><div style='text-align:center'><a href='http://localhost:8502' target='_blank' style='font-size:11px;color:#2DD4BF;text-decoration:none;'>↗ Open Admin Dashboard</a></div>", unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

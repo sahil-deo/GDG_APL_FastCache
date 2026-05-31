@@ -495,18 +495,23 @@ class SemanticCache:
         # We can run streamlit in the SAME process using streamlit.web.bootstrap.run()
         
         def run_st():
-            from streamlit.web import bootstrap
             import sys
+            import pickle
+            import tempfile
+            import os
+            import subprocess
             import fastcache.dashboard.app as app_module
-            
-            # Inject cache instance into the module so streamlit can find it
-            app_module._global_cache = self
-            
+
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pkl")
+            pickle.dump(self, tmp)
+            tmp.close()
+            os.environ["FASTCACHE_DEMO_CACHE"] = tmp.name
+
             app_path = app_module.__file__
-            
-            # modify sys.argv for streamlit
-            sys.argv = ["streamlit", "run", app_path, "--server.port", str(port)]
-            bootstrap.run(app_path, "", [], flag_options={})
+            subprocess.run([
+                sys.executable, "-m", "streamlit", "run", app_path,
+                "--server.port", str(port)
+            ])
             
         if background:
             t = threading.Thread(target=run_st, daemon=True)
