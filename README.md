@@ -20,7 +20,7 @@ One integration gives you:
 - Built-in guardrails for prompt length and injection blocking
 - Exact-match fast path bypassing embedding generation
 - Native asynchronous (`async`/`await`) support
-- A real-time Streamlit monitoring dashboard
+- A real-time lightweight monitoring dashboard
 
 ---
 
@@ -94,7 +94,7 @@ The system operates across three distinct layers:
 | `fastcache.stores.InMemoryStore`| High-performance, thread-safe memory store with Numpy matrix operations     |
 | `fastcache.stores.RedisStore`   | Persistent, scalable storage using Redis hashes and exact TTL limits        |
 | `fastcache.guardrails.Builtin`  | Defense layer against prompt injection and arbitrary token limits           |
-| `fastcache.dashboard`           | Streamlit interface for live monitoring and cache invalidation              |
+| `fastcache.dashboard`           | Lightweight HTTP interface for live monitoring and cache invalidation       |
 
 ---
 
@@ -160,7 +160,7 @@ response = await cache.aquery("What is FastAPI?", my_async_llm)
 
 ## Interactive Demonstration
 
-FastCache comes with a premium, chat-based demonstration app to help you visualize semantic caching in action.
+FastCache comes with a premium, chat-based demonstration app to help you visualize semantic caching in action. This interactive demo automatically spins up the built-in administrative dashboard in the background!
 
 ```bash
 # Enter the library directory
@@ -168,6 +168,9 @@ cd fastcache
 
 # Run the frontend demonstration application
 uv run streamlit run examples/app.py
+
+# The Streamlit chat app will open on http://localhost:8501
+# The built-in administrative dashboard will automatically launch on http://localhost:5555
 ```
 
 The interactive demo visibly differentiates between **Cache Misses** (full API latency), **Semantic Hits** (fuzzy matches), and **Exact Matches** (SHA-256 bypass).
@@ -182,22 +185,15 @@ The interactive demo visibly differentiates between **Cache Misses** (full API l
 FastCache includes a built-in administrative dashboard (`fastcache.dashboard`) for real-time visibility into cache performance. 
 
 > [!IMPORTANT]
-> The dashboard **cannot run standalone**. It requires a host Python application that has already created a `SemanticCache` instance and passed it to the dashboard. Running `streamlit run fastcache/dashboard/app.py` directly will show an error because there is no cache to connect to.
+> The dashboard **cannot run standalone**. It requires a host Python application that has already created a `SemanticCache` instance. The dashboard is extremely lightweight, relying on Python's built-in `http.server` (zero extra dependencies).
 
-The recommended way to use the dashboard is via the `dashboard_demo.py` script, which seeds a cache with synthetic data and launches the UI in a single step:
-
-```bash
-cd fastcache
-uv run python examples/dashboard_demo.py
-```
-
-Or, from your own application, call `serve_dashboard()` on your cache instance:
+From your own application, simply call `serve_dashboard()` on your cache instance:
 
 ```python
 cache = SemanticCache(dashboard=True)
 
-# After your app has run some queries...
-cache.serve_dashboard(port=8501, background=True)
+# The dashboard will run in a background thread
+cache.serve_dashboard(port=5555, background=True)
 ```
 
 **Administrative Dashboard:**
@@ -215,7 +211,7 @@ The dashboard provides:
 
 - **Core Library:** Python 3.10+ · Numpy · `urllib` (no bloated dependencies)
 - **Vector Storage:** Numpy array dot-products · Redis
-- **Frontend Dashboard:** Streamlit · Pandas
+- **Frontend Dashboard:** Built-in `http.server` · React · Tailwind CSS
 - **Package Management:** `uv` · `hatchling`
 
 ---
