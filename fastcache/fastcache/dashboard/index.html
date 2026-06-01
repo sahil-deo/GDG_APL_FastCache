@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FastCache Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0f172a',
+                        cardBg: '#1e293b',
+                        accent: '#0ea5e9',
+                        accentGlow: '#38bdf8'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #0f172a; 
+            color: #f8fafc;
+            /* Subtle background gradient */
+            background-image: radial-gradient(circle at 15% 50%, rgba(14, 165, 233, 0.08), transparent 25%),
+                              radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08), transparent 25%);
+            background-attachment: fixed;
+        }
+        .glass {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 1rem;
+        }
+        .metric-card {
+            transition: all 0.3s ease;
+        }
+        .metric-card:hover {
+            transform: translateY(-4px);
+            border-color: rgba(56, 189, 248, 0.3);
+            box-shadow: 0 10px 30px -10px rgba(56, 189, 248, 0.2);
+        }
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.5); }
+        ::-webkit-scrollbar-thumb { background: rgba(51, 65, 85, 0.8); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(71, 85, 105, 1); }
+        
+        .pulse-dot {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        
+        table { border-collapse: separate; border-spacing: 0; }
+        th { border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+        tr td { border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        tr:last-child td { border-bottom: none; }
+        tr { transition: background-color 0.2s; }
+        tr:hover td { background-color: rgba(255, 255, 255, 0.03); }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const formatNumber = (num) => num != null ? num.toLocaleString(undefined, { maximumFractionDigits: 1 }) : '-';
+        const formatPercent = (num) => num != null ? (num * 100).toFixed(1) + '%' : '-';
+        
+        // Simple Icons as SVG components to avoid external deps for icons
+        const IconActivity = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>;
+        const IconZap = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>;
+        const IconClock = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>;
+        const IconDatabase = () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"></path><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"></path></svg>;
+
+        const MetricCard = ({ title, value, subtitle, icon: Icon, color }) => (
+            <div className="glass metric-card p-6 flex items-start justify-between relative overflow-hidden">
+                <div className="z-10">
+                    <p className="text-slate-400 text-sm font-medium mb-1">{title}</p>
+                    <h3 className="text-3xl font-bold text-white mb-1">{value}</h3>
+                    {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+                </div>
+                <div className={`p-3 rounded-lg z-10 bg-opacity-20 ${color.bg} ${color.text}`}>
+                    <Icon />
+                </div>
+                {/* Decorative blob */}
+                <div className={`absolute -bottom-6 -right-6 w-24 h-24 rounded-full opacity-20 blur-2xl ${color.bg}`}></div>
+            </div>
+        );
+
+        const App = () => {
+            const [data, setData] = useState(null);
+            const [error, setError] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [lastRefresh, setLastRefresh] = useState(new Date());
+
+            const fetchData = async () => {
+                try {
+                    const res = await fetch('/api/stats');
+                    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                    const json = await res.json();
+                    setData(json);
+                    setError(null);
+                    setLastRefresh(new Date());
+                } catch (e) {
+                    console.error("Fetch error:", e);
+                    setError(e.message);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            useEffect(() => {
+                fetchData();
+                const interval = setInterval(fetchData, 3000);
+                return () => clearInterval(interval);
+            }, []);
+
+            if (loading && !data) return (
+                <div className="min-h-screen flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-accent"></div>
+                </div>
+            );
+
+            if (error && !data) return (
+                <div className="min-h-screen flex items-center justify-center">
+                    <div className="glass p-8 text-center max-w-md">
+                        <div className="text-red-500 mb-4"><svg className="mx-auto w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
+                        <h2 className="text-xl font-bold mb-2">Connection Error</h2>
+                        <p className="text-slate-400 text-sm">{error}</p>
+                    </div>
+                </div>
+            );
+
+            const stats = data?.stats || {};
+            const entries = data?.entries || [];
+            
+            const hitRate = stats.total_queries > 0 ? (stats.cache_hits / stats.total_queries) : 0;
+            
+            // Bar chart data for Latency
+            const maxLatency = Math.max(stats.avg_hit_latency_ms || 0, stats.avg_miss_latency_ms || 1);
+            const hitWidth = `${((stats.avg_hit_latency_ms || 0) / maxLatency) * 100}%`;
+            const missWidth = `${((stats.avg_miss_latency_ms || 0) / maxLatency) * 100}%`;
+
+            return (
+                <div className="container mx-auto px-4 py-8 max-w-7xl">
+                    <header className="flex justify-between items-center mb-10">
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent to-purple-500 flex items-center justify-center shadow-lg shadow-accent/20">
+                                    <IconZap />
+                                </div>
+                                <h1 className="text-2xl font-bold tracking-tight text-white">FastCache</h1>
+                            </div>
+                            <p className="text-slate-400 mt-2 text-sm">Real-time Semantic Cache Dashboard</p>
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-slate-400 glass px-4 py-2 rounded-full">
+                            <span className="flex h-2 w-2">
+                              <span className="pulse-dot absolute inline-flex h-2 w-2 rounded-full bg-emerald-500 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                            </span>
+                            Live • Updated {lastRefresh.toLocaleTimeString()}
+                        </div>
+                    </header>
+
+                    {/* Metrics Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                        <MetricCard 
+                            title="Total Queries" 
+                            value={formatNumber(stats.total_queries)} 
+                            icon={IconActivity}
+                            color={{bg: 'bg-blue-500', text: 'text-blue-400'}}
+                        />
+                        <MetricCard 
+                            title="Hit Rate" 
+                            value={formatPercent(hitRate)} 
+                            subtitle={`${formatNumber(stats.cache_hits)} hits / ${formatNumber(stats.cache_misses)} misses`}
+                            icon={IconZap}
+                            color={{bg: 'bg-emerald-500', text: 'text-emerald-400'}}
+                        />
+                        <MetricCard 
+                            title="Avg Latency" 
+                            value={`${formatNumber(stats.avg_total_latency_ms)} ms`} 
+                            icon={IconClock}
+                            color={{bg: 'bg-purple-500', text: 'text-purple-400'}}
+                        />
+                        <MetricCard 
+                            title="Total Entries" 
+                            value={formatNumber(stats.total_entries)} 
+                            icon={IconDatabase}
+                            color={{bg: 'bg-amber-500', text: 'text-amber-400'}}
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                        {/* Charts Section */}
+                        <div className="lg:col-span-1 space-y-8">
+                            <div className="glass p-6 h-full">
+                                <h3 className="text-lg font-semibold mb-6 flex items-center gap-2">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                                    Latency Comparison
+                                </h3>
+                                <div className="space-y-6">
+                                    <div>
+                                        <div className="flex justify-between text-sm mb-2">
+                                            <span className="text-slate-300">Cache Hits</span>
+                                            <span className="font-mono text-emerald-400">{formatNumber(stats.avg_hit_latency_ms)} ms</span>
+                                        </div>
+                                        <div className="w-full bg-slate-800 rounded-full h-3">
+                                            <div className="bg-emerald-500 h-3 rounded-full transition-all duration-500 ease-out" style={{ width: Math.max(2, parseFloat(hitWidth)) + '%' }}></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="flex justify-between text-sm mb-2">
+                                            <span className="text-slate-300">Cache Misses (LLM)</span>
+                                            <span className="font-mono text-rose-400">{formatNumber(stats.avg_miss_latency_ms)} ms</span>
+                                        </div>
+                                        <div className="w-full bg-slate-800 rounded-full h-3">
+                                            <div className="bg-rose-500 h-3 rounded-full transition-all duration-500 ease-out" style={{ width: Math.max(2, parseFloat(missWidth)) + '%' }}></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="mt-8 pt-6 border-t border-slate-700/50">
+                                    <h4 className="text-sm text-slate-400 mb-4">Tokens Saved</h4>
+                                    <div className="flex items-end gap-2">
+                                        <span className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
+                                            {formatNumber(stats.tokens_saved)}
+                                        </span>
+                                        <span className="text-slate-500 mb-1">tokens</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Explorer Section */}
+                        <div className="lg:col-span-2">
+                            <div className="glass h-full flex flex-col">
+                                <div className="p-6 border-b border-slate-700/50 flex justify-between items-center">
+                                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                                        <IconDatabase /> Cache Explorer
+                                    </h3>
+                                    <span className="text-xs bg-slate-800 px-3 py-1 rounded-full text-slate-400">
+                                        {entries.length} Entries
+                                    </span>
+                                </div>
+                                <div className="p-0 flex-1 overflow-x-auto">
+                                    {entries.length > 0 ? (
+                                        <table className="w-full text-left text-sm whitespace-nowrap">
+                                            <thead className="text-xs uppercase bg-slate-800/50 text-slate-400">
+                                                <tr>
+                                                    <th className="px-6 py-4 font-medium">Namespace</th>
+                                                    <th className="px-6 py-4 font-medium">Query</th>
+                                                    <th className="px-6 py-4 font-medium">Hits</th>
+                                                    <th className="px-6 py-4 font-medium">Age (s)</th>
+                                                    <th className="px-6 py-4 font-medium">TTL Rem.</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="text-slate-300">
+                                                {entries.map((e, idx) => (
+                                                    <tr key={e.id || idx}>
+                                                        <td className="px-6 py-4">
+                                                            <span className="bg-slate-700/50 text-slate-300 px-2 py-1 rounded text-xs">{e.namespace}</span>
+                                                        </td>
+                                                        <td className="px-6 py-4 truncate max-w-[200px]" title={e.query}>{e.query}</td>
+                                                        <td className="px-6 py-4">
+                                                            <span className="font-mono bg-blue-500/10 text-blue-400 px-2 py-1 rounded text-xs">{e.hit_count}</span>
+                                                        </td>
+                                                        <td className="px-6 py-4 font-mono">{Math.round(e.age_seconds)}</td>
+                                                        <td className="px-6 py-4 font-mono text-slate-400">
+                                                            {e.ttl === 0 ? '∞' : Math.round(e.ttl_remaining)}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center h-48 text-slate-500">
+                                            <IconDatabase />
+                                            <p className="mt-2 text-sm">Cache is currently empty.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

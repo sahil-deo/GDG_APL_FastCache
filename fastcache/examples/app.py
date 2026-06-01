@@ -407,7 +407,7 @@ for k, v in DEFAULTS.items():
 @st.cache_resource
 def _start_dashboard(_cache):
     try:
-        _cache.serve_dashboard(port=8502, background=True)
+        _cache.serve_dashboard(port=5555, background=True)
         return True
     except Exception as e:
         print(f"Failed to start admin dashboard: {e}")
@@ -418,6 +418,14 @@ def get_cache() -> SemanticCache:
         embedder = GeminiEmbedder(api_key=st.session_state.api_key, model="gemini-embedding-2") if st.session_state.api_key else None
         config = CacheConfig(threshold=st.session_state.threshold)
         st.session_state.cache = DemoCache(config=config, embedder=embedder, dashboard=True)
+    
+    # Always ensure the dashboard points to the current active cache
+    try:
+        import fastcache.dashboard.app as dash_app
+        dash_app._global_cache = st.session_state.cache
+    except Exception:
+        pass
+
     _start_dashboard(st.session_state.cache)
     return st.session_state.cache
 
@@ -591,7 +599,7 @@ with st.sidebar:
 </div>
 """.replace('\n', ''), unsafe_allow_html=True)
     
-    st.markdown("<br><div style='text-align:center'><a href='http://localhost:8502' target='_blank' style='font-size:11px;color:#2DD4BF;text-decoration:none;'>↗ Open Admin Dashboard</a></div>", unsafe_allow_html=True)
+    st.markdown("<br><div style='text-align:center'><a href='http://localhost:5555' target='_blank' style='font-size:11px;color:#2DD4BF;text-decoration:none;'>↗ Open Admin Dashboard</a></div>", unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

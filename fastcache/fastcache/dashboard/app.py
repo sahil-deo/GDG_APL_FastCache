@@ -1,82 +1,114 @@
 import os
-import streamlit as st
-import pandas as pd
-import numpy as np
+import json
+import logging
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse
 
-# This will be injected by serve_dashboard()
+logger = logging.getLogger("fastcache.dashboard")
+
+# Global reference populated by serve_dashboard()
 _global_cache = None
 
-def get_cache():
-    if _global_cache:
-        return _global_cache
-    path = os.environ.get("FASTCACHE_DEMO_CACHE")
-    if path:
-        import json
-        with open(path) as f:
-            return json.load(f)
-    return None
+import math
 
-def main():
-    st.set_page_config(page_title="FastCache Dashboard", layout="wide")
-    
-    cache = get_cache()
-    if not cache:
-        st.error("Cache instance not found! Please run via SemanticCache.serve_dashboard().")
-        return
+def clean_floats(obj):
+    if isinstance(obj, dict):
+        return {k: clean_floats(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [clean_floats(v) for v in obj]
+    elif isinstance(obj, float):
+        if math.isinf(obj) or math.isnan(obj):
+            return None
+    return obj
+
+def get_cache_data():
+    """Retrieve cache data from global instance or temporary file."""
+    if _global_cache:
+        stats = _global_cache.stats.as_dict()
+        entries = []
+        # Attempt to grab entries if the store supports it (e.g., InMemoryStore)
+        if hasattr(_global_cache.store, "_entries") and hasattr(_global_cache.store, "_lock"):
+            with _global_cache.store._lock:
+                for ns, ns_entries in _global_cache.store._entries.items():
+                    for e in ns_entries:
+                        if not e.is_expired:
+                            entries.append({
+                                "id": e.id,
+                                "namespace": e.namespace,
+                                "query": e.query,
+                                "hit_count": e.hit_count,
+                                "age_seconds": e.age_seconds,
+                                "ttl": e.ttl,
+                                "ttl_remaining": e.ttl_remaining if e.ttl > 0 else None,
+                            })
+        return clean_floats({"stats": stats, "entries": entries})
         
-    st.title("FastCache Dashboard")
-    
-    stats = type("Stats", (), cache["stats"])()
-    
-    # 1. Overview
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Queries", stats.total_queries)
-    col2.metric("Hit Rate", f"{stats.hit_rate*100:.1f}%")
-    col3.metric("Avg Latency (ms)", f"{stats.avg_total_latency_ms:.1f}")
-    col4.metric("Entries in Cache", stats.total_entries)
-    
-    st.markdown("---")
-    
-    # 3. Stats Charts
-    st.subheader("Performance Metrics")
-    c1, c2 = st.columns(2)
-    
-    with c1:
-        st.markdown("**Latency Distribution**")
-        df_lat = pd.DataFrame({
-            "Type": ["Cache Hits", "Cache Misses (LLM)"],
-            "Latency (ms)": [stats.avg_hit_latency_ms, stats.avg_miss_latency_ms]
-        })
-        st.bar_chart(df_lat.set_index("Type"))
-        
-    with c2:
-        st.markdown("**Entries by Namespace**")
-        if stats.entries_by_namespace:
-            df_ns = pd.DataFrame(list(stats.entries_by_namespace.items()), columns=["Namespace", "Count"])
-            st.bar_chart(df_ns.set_index("Namespace"))
-        else:
-            st.info("No entries yet.")
+    path = os.environ.get("FASTCACHE_DEMO_CACHE")
+    if path and os.path.exists(path):
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Error reading demo cache file: {e}")
             
-    st.markdown("---")
+    return {"stats": {}, "entries": []}
+
+
+class DashboardHandler(BaseHTTPRequestHandler):
     
-    # 4. Cache Explorer
-    st.subheader("Cache Explorer")
-    entries = cache.get("entries", [])
-    if entries:
-        all_entries = []
-        for e in entries:
-            all_entries.append({
-                "ID": e["id"][:8],
-                "Namespace": e["namespace"],
-                "Query": e["query"][:50] + "..." if len(e["query"]) > 50 else e["query"],
-                "Hit Count": e["hit_count"],
-                "Age (s)": round(e["age_seconds"]),
-                "TTL": "No expiry" if e["ttl"] == 0 else round(e["ttl_remaining"])
-            })
-        df_explorer = pd.DataFrame(all_entries)
-        st.dataframe(df_explorer, use_container_width=True)
-    else:
-        st.info("Cache is empty or store is not InMemoryStore (explorer not supported for Redis yet).")
+    def log_message(self, format, *args):
+        # Suppress default noisy access logs
+        pass
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        
+        if parsed.path == "/":
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            
+            html_path = os.path.join(os.path.dirname(__file__), "index.html")
+            try:
+                with open(html_path, "rb") as f:
+                    self.wfile.write(f.read())
+            except Exception as e:
+                self.wfile.write(b"<h1>Dashboard Error</h1><p>index.html not found.</p>")
+                logger.error(f"Failed to serve index.html: {e}")
+                
+        elif parsed.path == "/api/stats":
+            self.send_response(200)
+            self.send_header("Content-type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            
+            data = get_cache_data()
+            self.wfile.write(json.dumps(data).encode("utf-8"))
+            
+        else:
+            self.send_response(404)
+            self.end_headers()
+
+
+def run_server(port=5555):
+    server_address = ('', port)
+    httpd = HTTPServer(server_address, DashboardHandler)
+    print(f"Dashboard running on http://localhost:{port}/")
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        httpd.server_close()
 
 if __name__ == "__main__":
-    main()
+    import sys
+    port = 5555
+    if "--port" in sys.argv:
+        try:
+            port = int(sys.argv[sys.argv.index("--port") + 1])
+        except (ValueError, IndexError):
+            pass
+            
+    logging.basicConfig(level=logging.INFO)
+    run_server(port)

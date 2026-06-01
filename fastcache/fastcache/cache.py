@@ -476,47 +476,24 @@ class SemanticCache:
                 
             logger.info(f"Invalidated {deleted} entries in namespace {eff_namespace}")
 
-    def serve_dashboard(self, port: int = 8501, background: bool = True):
+    def serve_dashboard(self, port: int = 5555, background: bool = True):
         if not self._dashboard_enabled:
             raise ConfigurationError("Dashboard is not enabled. Pass dashboard=True to SemanticCache().")
             
-        try:
-            import streamlit
-        except ImportError:
-            raise ImportError("Dashboard requires streamlit. Install it with: pip install fastcache[dashboard]")
-            
-        import subprocess
-        import sys
-        
-        # We need a way for the streamlit app to access this cache instance.
-        # But Streamlit runs in a separate process/interpreter if we run via `streamlit run`.
-        # Wait, the spec says "Dashboard runs in a threading.Thread (daemon=True) so it doesn't block".
-        # And "Dashboard must never import from fastcache in a way that creates a new cache instance. Stats are passed by reference"
-        # We can run streamlit in the SAME process using streamlit.web.bootstrap.run()
-        
-        def run_st():
-            import sys
-            import pickle
-            import tempfile
-            import os
-            import subprocess
+        def run_dashboard():
             import fastcache.dashboard.app as app_module
-
-            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pkl")
-            pickle.dump(self, tmp)
-            tmp.close()
-            os.environ["FASTCACHE_DEMO_CACHE"] = tmp.name
-
-            app_path = app_module.__file__
-            subprocess.run([
-                sys.executable, "-m", "streamlit", "run", app_path,
-                "--server.port", str(port)
-            ])
+            # Pass the current cache instance directly to the dashboard
+            app_module._global_cache = self
+            try:
+                app_module.run_server(port)
+            except OSError as e:
+                # If the port is already in use, we assume the server is already running
+                logger.debug(f"Dashboard server already running on port {port}: {e}")
             
         if background:
-            t = threading.Thread(target=run_st, daemon=True)
+            t = threading.Thread(target=run_dashboard, daemon=True)
             t.start()
             logger.info(f"Dashboard started in background thread on port {port}")
         else:
             logger.info(f"Dashboard starting on port {port} (blocking)")
-            run_st()
+            run_dashboard()
