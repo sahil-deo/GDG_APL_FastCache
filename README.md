@@ -28,6 +28,7 @@ One integration gives you:
 
 1. [Why FastCache](#why-fastcache)
 2. [Architecture](#architecture)
+3. [Applications and Use Cases](#applications-and-use-cases)
 3. [What's Inside](#whats-inside)
 4. [Local Setup](#local-setup)
 5. [Quick Start](#quick-start)
@@ -48,6 +49,55 @@ FastCache solves this by embedding the query and performing a vector similarity 
 - **Provider agnostic.** FastCache is completely unopinionated about which LLM you use. The fallback function is simply a Python callable.
 
 Every other tool requires a complex proxy infrastructure. We built the infrastructure straight into an embeddable SDK.
+
+
+---
+
+## Applications and Use Cases
+
+FastCache is useful anywhere LLM responses are expensive and queries are repetitive. The
+semantic matching layer means you benefit even when users don't phrase things identically.
+
+### Chatbots & virtual assistants
+Support bots and FAQ systems field the same questions thousands of times daily — "What
+are your refund policies?", "How do I reset my password?" FastCache serves these instantly
+from cache, cutting API costs proportionally to query overlap.
+
+### Developer tooling & IDEs
+Code assistants and documentation search tools across a team frequently produce near-identical
+prompts. A semantic cache is transparent to every developer while eliminating redundant model
+calls at the infrastructure level.
+
+### RAG & semantic search pipelines
+Retrieval-augmented generation systems often re-embed paraphrased variants of the same query
+before the retrieval step. FastCache short-circuits both the embedding generation and the LLM
+call on semantic duplicates, making it composable with any vector database.
+
+```python
+# Drop into any RAG pipeline
+answer = cache.query(user_question, lambda q: rag_pipeline.run(q))
+```
+
+### Analytics & natural language query interfaces
+NL-to-SQL and BI tools see high overlap across users asking variations of the same report
+("Show me Q3 revenue", "What was revenue last quarter?"). FastCache lets these apps scale
+without linear cost growth.
+
+### EdTech & tutoring platforms
+Students phrase identical conceptual questions dozens of ways. Semantic caching means the
+50th student asking about derivatives gets a sub-millisecond cached response without
+sacrificing answer quality.
+
+### Multi-tenant SaaS APIs
+FastCache's namespace support keeps per-tenant caches isolated while reducing shared
+infrastructure costs. Each tenant benefits from their own query history without cross-tenant
+data leakage.
+
+---
+
+**Rule of thumb:** If your application sends more than a few hundred LLM queries per day and
+users ask similar things, FastCache will reduce latency and cost. The higher the query overlap,
+the greater the savings.
 
 ---
 
