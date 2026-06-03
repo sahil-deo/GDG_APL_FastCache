@@ -29,12 +29,12 @@ One integration gives you:
 1. [Why FastCache](#why-fastcache)
 2. [Architecture](#architecture)
 3. [Applications and Use Cases](#applications-and-use-cases)
-3. [What's Inside](#whats-inside)
-4. [Local Setup](#local-setup)
-5. [Quick Start](#quick-start)
-6. [Monitoring Dashboard](#monitoring-dashboard)
-7. [Tech Stack](#tech-stack)
-8. [License](#license)
+4. [What's Inside](#whats-inside)
+5. [Local Setup](#local-setup)
+6. [Quick Start](#quick-start)
+7. [Monitoring Dashboard](#monitoring-dashboard)
+8. [Tech Stack](#tech-stack)
+9. [License](#license)
 
 ---
 
